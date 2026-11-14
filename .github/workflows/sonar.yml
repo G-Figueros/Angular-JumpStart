@@ -1,0 +1,48 @@
+
+name: SonarQube Cloud Analysis
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  sonar-analysis:
+    name: Build, Test and SonarQube Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16.20.2'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Build Angular application
+        run: npm run build
+
+      - name: Run unit tests if configured
+        shell: bash
+        run: |
+          if node -e "const p=require('./angular.json').projects['angular-jumpstart'];process.exit(p?.architect?.test ? 0 : 1)"; then
+            npm test -- --watch=false --browsers=ChromeHeadless
+          else
+            echo "::warning::No unit test target configured in angular.json"
+          fi
+
+      - name: SonarQube Cloud Scan
+        uses: SonarSource/sonarqube-scan-action@v8.5.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
